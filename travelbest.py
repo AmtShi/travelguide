@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # --- Load API Key from Secrets ---
-groq_api_key = st.secrets["GROQ_API_KEY"]
+groq_api_key = st.secrets["groq_api_key"]
 client = Groq(api_key=groq_api_key)
 
 # --- Custom CSS ---
