@@ -15,9 +15,8 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- Load Environment ---
-load_dotenv()
-groq_api_key = os.getenv("GROQ_API_KEY")
+# --- Load API Key from Secrets ---
+groq_api_key = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=groq_api_key)
 
 # --- Custom CSS ---
