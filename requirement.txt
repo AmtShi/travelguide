@@ -1,5 +1,5 @@
-streamlit
-folium
-streamlit-folium
-groq
-xhtml2pdf
+streamlit==1.32.0
+groq==0.5.0
+streamlit-folium==0.14.0
+xhtml2pdf==0.2.11
+folium==0.16.0
