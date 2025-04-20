@@ -157,9 +157,9 @@ def destination_preferences_section():
                     "History", "Food & Street Eats", "Nature Trails", "Art & Museums",
                     "Shopping", "Nightlife & Clubs", "Photography", "Adventure Sports",
                     "Local Culture", "Relaxation", "Festivals & Events", "Spiritual Retreats",
-                    "Tech & Innovation", "Sustainable Travel", "Music & Concerts", "Gaming Cafes",
-                    "Wellness & Spas", "Social Media Hotspots", "Extreme Sports", "Eco-Lodging",
-                    "Unique Stays (e.g., Treehouses)", "Road Trips", "Digital Detox"
+                    "Tech & Innovation", "Sustainable Travel", "Music & Concerts", "Gaming & Esports",
+                    "Wellness","Hiking, trekking, and camping","Social Media Hotspots", "Extreme Sports", "Road Trips", "Digital Detox",
+                    "Extreme Sports","Scuba Diving & Underwater Adventures","Tech & Innovation"
                 ],
                 default=["Food & Street Eats", "Local Culture"]
             )
