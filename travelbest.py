@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-from dotenv import load_dotenv
 from groq import Groq
 import folium
 from streamlit_folium import folium_static
