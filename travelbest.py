@@ -1,10 +1,11 @@
 import streamlit as st
-import json
+import os
+from dotenv import load_dotenv
+from groq import Groq
 import folium
 from streamlit_folium import folium_static
-from xhtml2pdf import pisa
 import tempfile
-from groq import Groq
+import json
 
 # --- Set Page Config ---
 st.set_page_config(
@@ -14,7 +15,7 @@ st.set_page_config(
 )
 
 # --- Load API Key from Secrets ---
-groq_api_key = st.secrets["groq_api_key"]
+groq_api_key = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=groq_api_key)
 
 # --- Custom CSS ---
@@ -40,7 +41,7 @@ st.markdown("""
 # --- Recommendation Function ---
 def get_perfect_destination(user_inputs):
     prompt = f"""
-    You are an elite travel curator. Suggest the best matching destination based on the following profile:
+    You are an elite travel curator with 20+ years of experience. Suggest the best matching destination based on the following profile:
     - Traveler: {user_inputs['traveler_type']}
     - Duration: {user_inputs['duration']} days
     - Continent: {user_inputs['continent']}
@@ -48,6 +49,8 @@ def get_perfect_destination(user_inputs):
     - Destination Type: {user_inputs['destination_type']}
     - Budget: {user_inputs['budget']}
     - Season: {user_inputs['season']}
+    - Age Group: {user_inputs['age_group']}
+    - Preferred Climate: {user_inputs['climate_preference']}
 
     Provide the best match, even if partial matches are found. Return ONLY this JSON structure:
     {{
@@ -64,15 +67,15 @@ def get_perfect_destination(user_inputs):
         response = client.chat.completions.create(
             model="llama3-70b-8192",
             messages=[
-                {"role": "system", "content": "You are an elite travel curator. Be extremely selective. Do not generate content that favors or discriminates based on region, race, ethnicity, or country. Only return safe, unbiased, inclusive recommendations."},
+                {"role": "system", "content": "You are an elite travel curator. Be extremely selective."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.5
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        st.error(f"⚠️ Sorry, we couldn’t generate your perfect destination. Please review your selections and try again.\n\nError: {e}")
-        return None
+        st.error("⚠️ Sorry, we couldn't generate your perfect destination. Please review your selections and try again.")
+        st.stop()
 
 # --- Traveler Profile ---
 def traveler_profile_section():
@@ -100,10 +103,18 @@ def traveler_profile_section():
                 value="💵 Comfort"
             )
 
+        extra_cols = st.columns([1, 1])
+        with extra_cols[0]:
+            age_group = st.selectbox("Age group", ["18-25", "26-40", "41-60", "60+"])
+        with extra_cols[1]:
+            climate_preference = st.selectbox("Preferred Climate", ["Warm", "Cold", "Tropical", "Dry", "Any"])
+
     return {
         "traveler_type": traveler_type,
         "duration": duration,
-        "budget": budget
+        "budget": budget,
+        "age_group": age_group,
+        "climate_preference": climate_preference
     }
 
 # --- Destination Preferences ---
@@ -151,24 +162,6 @@ def destination_preferences_section():
         "interests": interests
     }
 
-# --- Create PDF ---
-def create_pdf(recommendation):
-    html = f"""
-    <h1>{recommendation['destination']}</h1>
-    <p><strong>Match Score:</strong> {recommendation['match_score']}</p>
-    <h2>Why It's Perfect:</h2>
-    <ul>{''.join(f'<li>{pt.strip()}</li>' for pt in recommendation['why_perfect'])}</ul>
-    <h2>Itinerary Highlights:</h2>
-    <ul>{''.join(f'<li>{item}</li>' for item in recommendation['itinerary_highlights'])}</ul>
-    <p><strong>Insider Tip:</strong> {recommendation['local_secret']}</p>
-    <p><strong>Warning:</strong> {recommendation['warning']}</p>
-    """
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-        pdf_path = tmp_file.name
-        with open(pdf_path, "w+b") as pdf:
-            pisa.CreatePDF(html, dest=pdf)
-    return pdf_path
-
 # --- Save to JSON File ---
 def save_recommendation_to_file(rec):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="w") as tmp:
@@ -206,4 +199,26 @@ def main():
                     st.markdown(f"- {point.strip()}")
 
                 st.markdown("### 📅 Sample Itinerary")
-                for day
+                for day in rec["itinerary_highlights"]:
+                    st.markdown(f"- {day}")
+
+                with st.expander("🔍 Local Insider Secret"):
+                    st.markdown(f"*{rec['local_secret']}*")
+
+                st.markdown("### ⚠️ Heads Up")
+                st.warning(rec["warning"])
+
+                json_path = save_recommendation_to_file(rec)
+                with open(json_path, "rb") as jf:
+                    st.download_button("💾 Save Recommendation as File", jf, file_name="travel_recommendation.json")
+
+    st.markdown("""
+    <div class="small-font" style="margin-top: 50px;">
+        <hr>
+        <p>🔎 <strong>Note:</strong> These destination suggestions are generated by an AI model based on patterns and probabilities from your inputs. They are not influenced by any particular country, region, or commercial interest. No personally identifiable information (PII) is collected or stored.</p>
+        <p>⚠️ <strong>Disclaimer:</strong> This app is for informational and educational purposes only as part of a study project. It does not offer professional travel advice or services. The developer holds no liability for any travel-related outcomes from using this app.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
