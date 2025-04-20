@@ -1,9 +1,10 @@
 import streamlit as st
+import json
 import folium
 from streamlit_folium import folium_static
 from xhtml2pdf import pisa
 import tempfile
-import json
+from groq import Groq
 
 # --- Set Page Config ---
 st.set_page_config(
@@ -11,6 +12,10 @@ st.set_page_config(
     page_icon="🌍",
     layout="centered"
 )
+
+# --- Load API Key from Secrets ---
+groq_api_key = st.secrets["groq_api_key"]
+client = Groq(api_key=groq_api_key)
 
 # --- Custom CSS ---
 st.markdown("""
@@ -32,40 +37,48 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Mock Groq API (Replace this with real API in production) ---
-class MockGroqClient:
-    def __init__(self, api_key):
-        self.api_key = api_key
-
-    def chat(self, prompt):
-        # Mock response for testing, replace this with actual call to Groq API
-        return {
-            "destination": "Paris, France",
-            "match_score": "9/10",
-            "why_perfect": ["Rich in history", "Romantic atmosphere", "Great food and culture"],
-            "coordinates": [48.8566, 2.3522],
-            "itinerary_highlights": ["Day 1: Visit the Eiffel Tower", "Day 2: Explore Louvre Museum"],
-            "local_secret": "Visit the hidden garden behind Notre-Dame",
-            "warning": "Pickpockets are common in tourist areas."
-        }
-
 # --- Recommendation Function ---
 def get_perfect_destination(user_inputs):
+    prompt = f"""
+    You are an elite travel curator. Suggest the best matching destination based on the following profile:
+    - Traveler: {user_inputs['traveler_type']}
+    - Duration: {user_inputs['duration']} days
+    - Continent: {user_inputs['continent']}
+    - Interests: {', '.join(user_inputs['interests'])}
+    - Destination Type: {user_inputs['destination_type']}
+    - Budget: {user_inputs['budget']}
+    - Season: {user_inputs['season']}
+
+    Provide the best match, even if partial matches are found. Return ONLY this JSON structure:
+    {{
+        "destination": "City, Country",
+        "match_score": "X/10 match score",
+        "why_perfect": ["3 bullet points max"],
+        "coordinates": [lat, lng],
+        "itinerary_highlights": ["Day 1: Morning/Afternoon/Evening", "Day 2:..."],
+        "local_secret": "One special insider tip",
+        "warning": "Main safety concern to note"
+    }}
+    """
     try:
-        # Replace the MockGroqClient with actual Groq client in production
-        groq_api_key = st.secrets["groq_api_key"]
-        client = MockGroqClient(api_key=groq_api_key)  # Use Mock client here for testing
-        response = client.chat(prompt="Generate travel recommendation based on user inputs")
-        return response
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=[
+                {"role": "system", "content": "You are an elite travel curator. Be extremely selective. Do not generate content that favors or discriminates based on region, race, ethnicity, or country. Only return safe, unbiased, inclusive recommendations."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5
+        )
+        return json.loads(response.choices[0].message.content)
     except Exception as e:
-        st.error(f"⚠️ Error generating destination. {e}")
+        st.error(f"⚠️ Sorry, we couldn’t generate your perfect destination. Please review your selections and try again.\n\nError: {e}")
         return None
 
-# --- Traveler Profile Section ---
+# --- Traveler Profile ---
 def traveler_profile_section():
-    with st.container():
+    with st.container(border=True):
         st.header("🧳 Traveler Profile")
-        cols = st.columns([1, 1, 1])
+        cols = st.columns([1,1,1])
 
         with cols[0]:
             traveler_type = st.radio(
@@ -93,11 +106,11 @@ def traveler_profile_section():
         "budget": budget
     }
 
-# --- Destination Preferences Section ---
+# --- Destination Preferences ---
 def destination_preferences_section():
-    with st.container():
+    with st.container(border=True):
         st.header("🌎 Destination Preferences")
-        cols = st.columns([1, 1])
+        cols = st.columns([1,1])
 
         with cols[0]:
             continent = st.selectbox(
@@ -156,6 +169,12 @@ def create_pdf(recommendation):
             pisa.CreatePDF(html, dest=pdf)
     return pdf_path
 
+# --- Save to JSON File ---
+def save_recommendation_to_file(rec):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="w") as tmp:
+        json.dump(rec, tmp, indent=4)
+        return tmp.name
+
 # --- Main ---
 def main():
     st.title("✈️ Perfect Destination Finder")
@@ -170,34 +189,21 @@ def main():
             rec = get_perfect_destination(user_inputs)
 
         if rec:
-            st.success(f"## 🏆 Your Perfect Match: {rec['destination']}")
-            st.markdown(f"**{rec['match_score']} match** | {user_inputs['duration']} day trip")
+            with st.container(border=True):
+                st.success(f"## 🏆 Your Perfect Match: {rec['destination']}")
+                st.markdown(f"**{rec['match_score']} match** | {user_inputs['duration']} day trip")
 
-            m = folium.Map(location=rec["coordinates"], zoom_start=12)
-            folium.Marker(
-                rec["coordinates"],
-                tooltip=f"Explore {rec['destination']}",
-                icon=folium.Icon(color="red", icon="heart")
-            ).add_to(m)
-            folium_static(m, height=300)
+                m = folium.Map(location=rec["coordinates"], zoom_start=12)
+                folium.Marker(
+                    rec["coordinates"],
+                    tooltip=f"Explore {rec['destination']}",
+                    icon=folium.Icon(color="red", icon="heart")
+                ).add_to(m)
+                folium_static(m, height=300)
 
-            st.markdown("### ❤️ Why This Fits You")
-            for point in rec["why_perfect"]:
-                st.markdown(f"- {point.strip()}")
+                st.markdown("### ❤️ Why This Fits You")
+                for point in rec["why_perfect"]:
+                    st.markdown(f"- {point.strip()}")
 
-            st.markdown("### 📅 Sample Itinerary")
-            for day in rec["itinerary_highlights"]:
-                st.markdown(f"- {day}")
-
-            with st.expander("🔍 Local Insider Secret"):
-                st.markdown(f"*{rec['local_secret']}*")
-
-            st.markdown("### ⚠️ Heads Up")
-            st.warning(rec["warning"])
-
-            pdf_path = create_pdf(rec)
-            with open(pdf_path, "rb") as f:
-                st.download_button("📄 Download Itinerary as PDF", f, file_name="travel_plan.pdf")
-
-if __name__ == "__main__":
-    main()
+                st.markdown("### 📅 Sample Itinerary")
+                for day
