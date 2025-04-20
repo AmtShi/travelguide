@@ -1,5 +1,21 @@
+# Streamlit - main framework
 streamlit==1.14.0
+
+# Groq for AI (ensure it's a stable version)
 groq==0.5.0
+
+# Libraries for Maps & Folium integration
 streamlit-folium==0.14.0
-xhtml2pdf==0.2.11
 folium==0.16.0
+
+# For generating PDF from HTML content
+xhtml2pdf==0.2.11
+
+# Rich and markdown dependencies for error handling and logging
+rich==14.0.0
+pygments==2.19.1
+markdown-it-py==3.0.0
+mdurl==0.1.2
+
+# Ensure correct pip version
+pip>=25.0.1
